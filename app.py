@@ -184,6 +184,12 @@ cat_options = sorted(df["Item_Type"].unique())
 subtype_map = df.groupby("Item_Type")["Item_Sub_Type"].unique().apply(sorted).to_dict()
 outlet_ids = sorted(df["Outlet_Identifier"].unique()) if "Outlet_Identifier" in df.columns else []
 
+# Categories that aren't actually food -- the dataset only ever records
+# "Low Fat" for these (it's not a meaningful nutrition attribute for them),
+# so we hide the Fat Content control for them instead of asking a
+# nonsensical question.
+NON_FOOD_TYPES = {"Household", "Health and Hygiene", "Others"}
+
 
 def predict_risk(row_dict):
     row_df = pd.DataFrame([row_dict])[ALL_FEATURES]
@@ -205,9 +211,14 @@ with tab1:
         sub_options = subtype_map.get(item_type, ["Other"])
         sub_type = c4.selectbox("Subcategory", sub_options)
 
-        fat = st.radio("Fat Content Classification", ["Low Fat", "Regular", "High Fat"], horizontal=True)
-        if fat == "High Fat":
-            st.caption("⚠️ 'High Fat' isn't in the training data — the model treats it as an unknown category.")
+        is_food = item_type not in NON_FOOD_TYPES
+        if is_food:
+            fat = st.radio("Fat Content Classification", ["Low Fat", "Regular", "High Fat"], horizontal=True)
+            if fat == "High Fat":
+                st.caption("⚠️ 'High Fat' isn't in the training data — the model treats it as an unknown category.")
+        else:
+            fat = "Low Fat"  # non-food items have no real fat content in the data
+            st.caption(f"ℹ️ Fat content isn't applicable to **{item_type}** — skipped automatically.")
 
         visibility = st.slider("Shelf Visibility", 0.0, 0.30, 0.070, step=0.001)
 
